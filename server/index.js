@@ -1,32 +1,57 @@
-const express = require('express');
+import express from 'express';
+import { Server } from "socket.io";
+import { createServer } from 'node:http';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
 const app = express();
-const {Server} = require('socket.io');
-const {createServer} = require('http')
-const port = 3000;
-const cors = require('cors')
 
-
-app.use(cors())
 const server = createServer(app);
-const io = new Server(server,{
-    cors : {
-        origin : "http://localhost:5173"
-    }
-})
 
-app.get('/',(req,res)=>{
-    res.send("serever started")
-})
+const io = new Server(server);
 
-io.on('connection',(socket)=>{
-    console.log("User connected",socket.id);
-    socket.emit('message',"welcome to the server")
-    
-    
-})
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
-io.emit('massege',"hello everyone")
-server.listen(port,()=>{
+app.get('/', (req, res) => {
+    res.sendFile(join(__dirname, 'index.html'));
+});
 
-    console.log(`serever started on port http://localhost:${port}`)
-})
+io.on('connection', (socket) => {
+
+    socket.on('join', (username) => {
+
+        socket.username = username;
+
+        console.log(`${socket.username} joined`);
+
+        // Notify all users that someone joined
+        io.emit('user-joined', username);
+
+    });
+
+    socket.on('message', (msg) => {
+
+        console.log(`${socket.username}: ${msg}`);
+
+        // Broadcast message to all connected users
+        io.emit('message', {
+            username: socket.username,
+            msg: msg
+        });
+
+    });
+
+    socket.on('disconnect', () => {
+
+        console.log(`${socket.username} disconnected`);
+
+        // Notify all users that someone left
+        io.emit('user-left', socket.username);
+
+    });
+
+});
+
+server.listen(5050, () => {
+    console.log("Server Started");
+});
